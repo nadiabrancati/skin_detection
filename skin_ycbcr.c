@@ -1,3 +1,6 @@
+//Copyright (c) 2016 nbrancati
+
+
 #include "cv.h"
 #include "cvaux.h"
 #include "cxmisc.h"
