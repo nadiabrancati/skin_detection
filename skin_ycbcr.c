@@ -1,6 +1,8 @@
 //Copyright (c) 2016 nbrancati
 
-
+// The code is free to use for research, provided that the following paper is cited in the works that use the code. 
+// Brancati N., De Pietro G., Frucci M., Gallo L., "Dynamic color clustering for human skin detection
+// under severe illumination variations", Computer Vision and Image Understanding (submitted)
 #include "cv.h"
 #include "cvaux.h"
 #include "cxmisc.h"
