@@ -17,7 +17,6 @@
 #include <stdlib.h>
 #include <ctype.h>
 
-#include "color_constancy.c"
 #define PI 3.14159265
 
 int bins=256;
