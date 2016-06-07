@@ -4,8 +4,8 @@
 // Brancati N., De Pietro G., Frucci M., Gallo L., "Dynamic color clustering for human skin detection
 // under severe illumination variations", Computer Vision and Image Understanding (submitted)
 
-// To run the code, go in command line. In the directory where the executable is installed (skin), copy this string "./skin image1.jpg" for the image1, 
-//or this string "./skin image1.jpg" for the image2.
+// To run the code, go in command line. In the directory where the executable object fine is installed (skin), copy this string 
+// "./skin image1.jpg" for the image1, or this string "./skin image1.jpg" for the image2.
 
 #include "cv.h"
 #include "cvaux.h"
