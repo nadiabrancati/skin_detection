@@ -3,6 +3,10 @@
 // The code is free to use for research, provided that the following paper is cited in the works that use the code. 
 // Brancati N., De Pietro G., Frucci M., Gallo L., "Dynamic color clustering for human skin detection
 // under severe illumination variations", Computer Vision and Image Understanding (submitted)
+
+// To run the code, go in command line. In the directory where the executable is installed (skin), copy this string "./skin image1.jpg" for the image1, 
+//or this string "./skin image1.jpg" for the image2.
+
 #include "cv.h"
 #include "cvaux.h"
 #include "cxmisc.h"
@@ -13,6 +17,8 @@
 #include <stdlib.h>
 #include <ctype.h>
 
+#include "color_constancy.c"
+#define PI 3.14159265
 
 int bins=256;
 int tolCr=1;
@@ -23,10 +29,11 @@ float ranges2[] = { 0, 255 };
 float* ranges[] = { ranges1, ranges2 };
 int hist_size[] = {bins, bins};
 CvHistogram *histYCr,*histYCb;
-int YRCrMin,YRCrMax,YRCbMin,YRCbMax;
+int Y0,Y1,Y2,Y3;
 char pathf[400]="original_images/";
 char *image;
 char pathout[400]="result/";
+char c_kk[400]="";
 char delimiter[200]=".";
 char filename[400]="",immagine[200],output[400]="";
 
@@ -57,7 +64,7 @@ return iBins;
 }
 
 
-//Computation of Min e max of the histogram
+//Computation of Min and Max of the histogram (5th and 95th percentile)
 void calcMinMaxHist(int *yValues,int *iBins,int vect[2]){
 	int i,j,flag=0,*app,k,y;
 	float maxVal=0,percentage=0;
@@ -106,7 +113,8 @@ void calcMinMaxHist(int *yValues,int *iBins,int vect[2]){
 
 
 
-//Computation of Y0 and Y1 for the computation of the vertices B, C, F and G of the trapezium
+//Computation of the vertices (Y0,CrMax) and (Y1,CrMax) of the trapezium in the YCr subspace
+//Computation of the vertices (Y2,CbMin) and (Y3,CbMin) of the trapezium in the YCb subspace
 void calculateValueMinMaxY(IplImage *image,double val,CvHistogram *hist,int minMax[2],int canal){
 int indTol;
 int value,i,j,k,**yValue,min=255,max=0,vMin,vMax,*iBins,*app,*app2,*iBins2,indMax=0,indMin=0,**iBinsVal,tol;
@@ -152,6 +160,7 @@ indTol=(2*(tol+1))-1;
 			for (k=0;k<bins;k++)if (app[k]!=0){app2[j]=app[k];iBins2[j]=iBins[k];j++;}
 			app2[0]=j;
 			minMax[0]=255;minMax[1]=0;
+			//Computation of Min and Max of the histogram
 			calcMinMaxHist(app2,iBins2,minMax);
 			if(minMax[0]!=minMax[1]){	
 				if(minMax[0]!=255) {indMin++; if (minMax[0]<min) min=minMax[0];}
@@ -209,19 +218,17 @@ return hist;
 /*--------------- SKIN SEGMENTATION ---------------*/
 int main (int argc, char **argv) {
   CvCapture *capture =0;
-	IplImage *source,*frame_rgb, *frame_ycbcr,*bw_ycbcr,*bw_final,*y_plane,*cr_plane,*cb_plane,*grad;
+	IplImage *source,*frame_rgb, *frame_ycbcr,*bw_ycbcr,*bw_final,*y_plane,*cr_plane,*cb_plane,*grad,*gt;
 	int i,j,l,k,percentage=50,minMaxCr[2],minMaxCb[2],height,width,perc;
 	int *histCr,*histCb;
-	
+	float kk;
 	histCr=(int *)calloc(bins,sizeof(int));
 	histCb=(int *)calloc(bins,sizeof(int));
 	histYCr = cvCreateHist( 2, hist_size, CV_HIST_ARRAY, ranges, 1 );
 	histYCb = cvCreateHist( 2, hist_size, CV_HIST_ARRAY, ranges, 1 );
 	for( i = 0; i < bins; i++ ) {histCr[i]=0;histCb[i]=0;}
-	float CrMin=133,CrMax=183,CbMin=77,CbMax=128,YMin=0,YMax=255,HCr,HCb,DCr,DCb,D1Cr,D1Cb,dCr,dCb,CbS,radD1Cb;
-	double max_valCr,min_valCb,coeffCr,coeffCb;
-	DCr=CrMax-CrMin;
-	DCb=CbMax-CbMin;
+	double CrMin=133,CrMax=183,CbMin=77,CbMax=128,YMin=0,YMax=255;
+	double max_valCr,min_valCb;
 
 	strcpy(filename,"");
 	strcpy(output,"");
@@ -229,11 +236,11 @@ int main (int argc, char **argv) {
 	strcat(filename,immagine);
 	image=strtok(immagine,delimiter);
 	printf("working on %s\n",filename);
+	
 	strcpy(output,pathout);strcat(output,image);strcat(output,".bmp");
 	if( (source = cvLoadImage( filename, -1 )) == 0 ) return -1;		
-	if ((int)(source->width)>(int)(source->height)) {height=400;width=604;}
-	else {height=604;width=400;}
-	frame_rgb = cvCreateImage( cvSize(source->width , source->height) ,
+	height=source->height;width=source->width;
+	frame_rgb = cvCreateImage( cvSize(width , height) ,
                                      source->depth, source->nChannels );
 	frame_ycbcr = cvCreateImage( cvSize(frame_rgb->width , frame_rgb->height),frame_rgb->depth, frame_rgb->nChannels );
 	grad = cvCreateImage( cvSize(frame_rgb->width , frame_rgb->height),8, 1);
@@ -242,10 +249,12 @@ int main (int argc, char **argv) {
         cr_plane = cvCreateImage( cvSize(frame_rgb->width , frame_rgb->height), 8, 1 );
         cb_plane = cvCreateImage( cvSize(frame_rgb->width , frame_rgb->height), 8, 1 );
 	cvZero(y_plane);
+
 	cvCopy(source,frame_rgb,0);
 	perc=frame_rgb->width*frame_rgb->height*0.1/100;
 
 	cvCvtColor(frame_rgb, frame_ycbcr, CV_BGR2YCrCb);
+
 	cvSplit( frame_ycbcr, y_plane, cr_plane, cb_plane, 0 );	
 
 	histCb=calculateHist(cb_plane);
@@ -274,12 +283,10 @@ int main (int argc, char **argv) {
 		}
 	}
 
-
-
 	histYCb=calculateHist2(y_plane,cb_plane);
 	histYCr=calculateHist2(y_plane,cr_plane);
 
-//Computation of B and C
+	//Computation of (Y0,CrMax) and (Y1,CrMax) by means of the calculus of percentiles
 	if (max_valCr!=-1) {
 		if (max_valCr>CrMax)max_valCr=CrMax;
 		calculateValueMinMaxY(frame_ycbcr,max_valCr,histYCr,minMaxCr,1);
@@ -287,8 +294,7 @@ int main (int argc, char **argv) {
 		
 	}	
 
-
-	//Computation of F and G
+	//Computation of (Y2,CbMin) and (Y3,CbMin) by means of the calculus of percentiles
 	if (min_valCb!=-1){
 		if (min_valCb<CbMin)min_valCb=CbMin;
 		calculateValueMinMaxY(frame_ycbcr,min_valCb,histYCb,minMaxCb,2);
@@ -296,79 +302,76 @@ int main (int argc, char **argv) {
 		
 	}	
 
-
         //
-	YRCrMin=50,YRCrMax=110,YRCbMin=140,YRCbMax=200;
+	Y0=50,Y1=110,Y2=140,Y3=200;
+	// Store of Y0, Y1
 	if (max_valCr!=-1){
-		YRCrMin=minMaxCr[0];
-		YRCrMax=minMaxCr[1];
+		Y0=minMaxCr[0];
+		Y1=minMaxCr[1];
 	}
-	if (max_valCr!=-1){
-		YRCbMin=minMaxCb[0];
-		YRCbMax=minMaxCb[1];
+	// Store of Y2, Y3
+	if (min_valCb!=-1){
+		Y2=minMaxCb[0];
+		Y3=minMaxCb[1];
 	}
-	cvZero(bw_final);
+	
 	int Y,Cr,Cb,valueY;
+	cvZero(bw_final);
+	double B,bCr,bCb,hCr,hCb,minb,maxb; 
+	double ACr=0,ACb=0,sf,I,J,D1Cb,D1Cr,DCb,DCr,dCr,dCbS,CbS,HCr,HCb,alpha;
+	B=256;
+	bCr=Y1-Y0;
+	bCb=Y3-Y2;
+	if (bCr>bCb){maxb=bCr;minb=bCb;}else{maxb=bCb;minb=bCr;}
+	hCr=CrMax-CrMin;
+	hCb=CbMax-CbMin;
+	ACr=((B+bCr)*hCr)/2;
+	ACb=((B+bCb)*hCb)/2;
+	for (i=0;i<frame_rgb->height;i++){
+		for (j=0;j<frame_rgb->width;j++){
 
-
-	for (i=0;i<frame_rgb->height-1;i++){
-		for (j=0;j<frame_rgb->width-1;j++){
 			uchar Y=((uchar *)(frame_ycbcr->imageData + i*frame_ycbcr->widthStep))[j*frame_ycbcr->nChannels + 0];
 			uchar Cr=((uchar *)(frame_ycbcr->imageData + i*frame_ycbcr->widthStep))[j*frame_ycbcr->nChannels + 1];
 			uchar Cb= ((uchar *)(frame_ycbcr->imageData + i*frame_ycbcr->widthStep))[j*frame_ycbcr->nChannels + 2];
 			HCr=0;HCb=0;CbS=0;
-			//Pixels in the trapezium
-			if ((Cr<=CrMax && Cr>=CrMin) && (Cb<=CbMax && Cb>=CbMin) && Cr>Cb && Y>=YMin && Y<=YMax)
-				{//Calculate HCr
-				if (Y>=YMin && Y<YRCrMin) {
-					coeffCr=(CrMax-CrMin)/(YRCrMin-YMin);
-					coeffCr = (round(coeffCr * 100))/100;
-					HCr=round(Y*coeffCr+CrMin-YMin*coeffCr);
+
+				//{//Calculate HCr
+				if (Y>=YMin && Y<Y0) {
+					HCr=CrMin+hCr*((Y-YMin)/(Y0-YMin));
 				}
-				else if (Y>=YRCrMin && Y<YRCrMax) HCr=round(CrMax);
-				else if (Y>=YRCrMax && Y<=YMax) {
-					coeffCr=(CrMin-CrMax)/(YMax-YRCrMax);
-					coeffCr = (round(coeffCr * 100))/100;
-					HCr=round(Y*coeffCr+CrMax-YRCrMax*coeffCr);
+				else if (Y>=Y0 && Y<Y1) HCr=CrMax;
+				else if (Y>=Y1 && Y<=YMax) {
+					HCr=CrMin+hCr*((Y-YMax)/(Y1-YMax));
 				}
 				//Calculate HCb
-				if (Y>=YMin && Y<YRCbMin) {
-					coeffCb=(CbMin-CbMax)/(YRCbMin-YMin);
-					coeffCb = (round(coeffCb * 100))/100;
-					HCb=round(Y*coeffCb+CbMax-YMin*coeffCb);
+				if (Y>=YMin && Y<Y2) {
+					HCb=CbMin+hCb*((Y-Y2)/(YMin-Y2));
 				}
-				else if (Y>=YRCbMin && Y<YRCbMax) HCb=round(CbMin);
-				else if (Y>=YRCbMax && Y<=YMax) {
-					coeffCb=(CbMax-CbMin)/(YMax-YRCbMax);	
-					coeffCb = (round(coeffCb * 100))/100;
-					HCb=round(Y*coeffCb+CbMin-YRCbMax*coeffCb);
+				else if (Y>=Y2 && Y<Y3) HCb=CbMin;
+				else if (Y>=Y3 && Y<=YMax) {
+					HCb=CbMin+hCb*((Y-Y3)/(YMax-Y3));
 				}
 
-				if (HCr>CrMax)HCr=CrMax;
-				if (HCb<CbMin)HCb=CbMin;
-				//condition C.2
 				dCr=Cr-CrMin;
-				D1Cr=HCr-CrMin;
-				D1Cb=CbMax-HCb;
-				dCb=dCr*D1Cb/D1Cr;
-				CbS=round(CbMax-dCb);
-				radD1Cb=round(D1Cb/3);
-				//Conditions C.0, C.1 and C.2
-				if (Cr<=HCr && Cb<=CbS+radD1Cb && Cb>=CbS-radD1Cb && Cb>=HCb)
+				DCr=HCr-CrMin;
+				DCb=CbMax-HCb;
+				if (ACr>ACb) {D1Cr=DCr*ACb/ACr;D1Cb=DCb;}else {D1Cr=DCr;D1Cb=DCb*ACr/ACb;}
+				alpha=D1Cb/D1Cr;
+				if (D1Cr>0) dCbS=dCr*alpha; else dCbS=255;
+				CbS=CbMax-dCbS;
+				sf=(float)minb/(float)maxb;
+				//Condition C.0
+				I=fabs((D1Cr+D1Cb)-(dCr+dCbS))*sf;
+				//Condition C.1
+				if ((D1Cb+D1Cr)>0) J=dCbS*(dCbS+dCr)/(D1Cb+D1Cr);else J=255;
+				//Skin pixels
+				if (Cr-Cb>=I && abs(Cb-CbS)<=J){
 					cvSet2D(bw_final,i,j,cvScalarAll(255));
 		}}}
 
-IplConvKernel *element;
-element = cvCreateStructuringElementEx(7, 7, 3, 3, CV_SHAPE_CROSS,0);
-cvDilate(bw_final,bw_final,element,1);
-cvErode(bw_final,bw_final,element,1);
-cvNot(bw_final,bw_final);
-
-	cvSaveImage(output,bw_final);
-
-		
-	cvReleaseImage( &frame_rgb );
-	cvReleaseImage( &frame_ycbcr );
-	cvReleaseImage( &bw_final );
+cvShowImage("Skin Pixels",bw_final);cvWaitKey(0);
+cvReleaseImage( &frame_rgb );
+cvReleaseImage( &frame_ycbcr );
+cvReleaseImage( &bw_final );
 
 }
