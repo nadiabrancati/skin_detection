@@ -6,6 +6,7 @@ The code is free to use for research, provided that the following paper is cited
 subspaces based on dynamic color clustering", Computer Vision and Image Understanding (submitted)
 
 How to use:
+
 For Windows OS: run skin.exe. In command line, insert the path of the test image, for example "image1.jpg" and "image2.jpg".
 
 For Linux OS: go in command line. In the directory where the executable object fine is installed (skin), copy this string "./skin image1.jpg" for the image1, or this string "./skin image1.jpg" for the image2.
