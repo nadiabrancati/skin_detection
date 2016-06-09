@@ -1,4 +1,4 @@
-# Adaptive_rule_based_skin_detector
+# Adaptive rule based skin detector
 
 A skin detection method based on a dynamic generation of the skin cluster range in the YCbCr color space by taking into account the lighting conditions. The method is based both on the identification of skin color clusters in the YCb and YCr subspaces and on the definition of correlation rules between the skin color clusters; it is efficient in terms of computational effort.
 
