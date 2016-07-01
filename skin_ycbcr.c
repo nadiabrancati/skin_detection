@@ -1,8 +1,8 @@
 //Copyright (c) 2016 nbrancati
 
 // The code is free to use for research, provided that the following paper is cited in the works that use the code. 
-// Brancati N., De Pietro G., Frucci M., Gallo L., "Dynamic color clustering for human skin detection
-// under severe illumination variations", Computer Vision and Image Understanding (submitted)
+// Brancati N., De Pietro G., Frucci M., Gallo L., "Human skin detection through correlation rules between 
+// the YCb and YCr subspaces based on dynamic color clustering", Computer Vision and Image Understanding (submitted)
 
 // How to use:
 // For Windows OS: run skin.exe. In command line, insert the path of the test image, 
